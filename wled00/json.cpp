@@ -345,6 +345,11 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
   if (tr >= 0) {
     jsonTransitionOnce = true;
     if (fadeTransition) strip.setTransition(tr * 100);
+  } else if (jsonTransitionOnce && currentPlaylist < 0) {
+    // a one-off transition ("tt", "live", individual LEDs) is still armed because its fade has not finished yet:
+    // this command brings none of its own, so it gets the default transition back instead of inheriting the old one
+    jsonTransitionOnce = false;
+    strip.setTransition(fadeTransition ? transitionDelay : 0);
   }
 
   tr = root[F("tb")] | -1;
