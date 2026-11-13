@@ -92,7 +92,11 @@ uint32_t Bus::autoWhiteCalc(uint32_t c) const {
   unsigned b = B(c);
   if (aWM == RGBW_MODE_MAX) return RGBW32(r, g, b, r > g ? (r > b ? r : b) : (g > b ? g : b)); // brightest RGB channel
   w = r < g ? (r < b ? r : b) : (g < b ? g : b);
-  if (aWM == RGBW_MODE_AUTO_ACCURATE) { r -= w; g -= w; b -= w; } //subtract w in ACCURATE mode
+  if (aWM == RGBW_MODE_AUTO_ACCURATE) {
+    // subtract w in ACCURATE mode; _autoWhiteKeep % of it stays on the RGB channels (0 = plain Accurate, 100 = same as Brighter)
+    unsigned sub = (w * (100 - _autoWhiteKeep)) / 100;
+    r -= sub; g -= sub; b -= sub;
+  }
   return RGBW32(r, g, b, w);
 }
 
@@ -107,7 +111,7 @@ void Bus::freeData() {
 }
 
 BusDigital::BusDigital(const BusConfig &bc, uint8_t nr, const ColorOrderMap &com)
-: Bus(bc.type, bc.start, bc.autoWhite, bc.count, bc.reversed, (bc.refreshReq || bc.type == TYPE_TM1814))
+: Bus(bc.type, bc.start, bc.autoWhite, bc.count, bc.reversed, (bc.refreshReq || bc.type == TYPE_TM1814), bc.autoWhiteKeep)
 , _skip(bc.skipAmount) //sacrificial pixels
 , _colorOrder(bc.colorOrder)
 , _milliAmpsPerLed(bc.milliAmpsPerLed)
@@ -453,7 +457,7 @@ void BusDigital::cleanup() {
 #endif
 
 BusPwm::BusPwm(const BusConfig &bc)
-: Bus(bc.type, bc.start, bc.autoWhite, 1, bc.reversed, bc.refreshReq) // hijack Off refresh flag to indicate usage of dithering
+: Bus(bc.type, bc.start, bc.autoWhite, 1, bc.reversed, bc.refreshReq, bc.autoWhiteKeep) // hijack Off refresh flag to indicate usage of dithering
 {
   if (!isPWM(bc.type)) return;
   unsigned numPins = numPWMPins(bc.type);
@@ -704,7 +708,7 @@ std::vector<LEDType> BusOnOff::getLEDTypes() {
 }
 
 BusNetwork::BusNetwork(const BusConfig &bc)
-: Bus(bc.type, bc.start, bc.autoWhite, bc.count)
+: Bus(bc.type, bc.start, bc.autoWhite, bc.count, false, false, bc.autoWhiteKeep)
 , _broadcastLock(false)
 {
   switch (bc.type) {

@@ -89,7 +89,7 @@ typedef struct {
 //parent class of BusDigital, BusPwm, and BusNetwork
 class Bus {
   public:
-    Bus(uint8_t type, uint16_t start, uint8_t aw, uint16_t len = 1, bool reversed = false, bool refresh = false)
+    Bus(uint8_t type, uint16_t start, uint8_t aw, uint16_t len = 1, bool reversed = false, bool refresh = false, uint8_t awKeep = 0)
     : _type(type)
     , _bri(255)
     , _start(start)
@@ -97,6 +97,7 @@ class Bus {
     , _reversed(reversed)
     , _valid(false)
     , _needsRefresh(refresh)
+    , _autoWhiteKeep(awKeep > 100 ? 100 : awKeep)
     , _data(nullptr) // keep data access consistent across all types of buses
     {
       _autoWhiteMode = Bus::hasWhite(type) ? aw : RGBW_MODE_MANUAL_ONLY;
@@ -136,6 +137,8 @@ class Bus {
     inline  void     setStart(uint16_t start)                   { _start = start; }
     inline  void     setAutoWhiteMode(uint8_t m)                { if (m < 5) _autoWhiteMode = m; }
     inline  uint8_t  getAutoWhiteMode() const                   { return _autoWhiteMode; }
+    inline  void     setAutoWhiteKeep(uint8_t k)                { _autoWhiteKeep = k > 100 ? 100 : k; }
+    inline  uint8_t  getAutoWhiteKeep() const                   { return _autoWhiteKeep; }
     inline  unsigned getNumberOfChannels() const                { return hasWhite() + 3*hasRGB() + hasCCT(); }
     inline  uint16_t getStart() const                           { return _start; }
     inline  uint8_t  getType() const                            { return _type; }
@@ -201,6 +204,8 @@ class Bus {
       bool _hasCCT;//       : 1;
     //} __attribute__ ((packed));
     uint8_t  _autoWhiteMode;
+    // Accurate auto-white: percentage of the common RGB part that stays on the RGB channels (0 = plain Accurate, 100 = Brighter)
+    uint8_t  _autoWhiteKeep;
     uint8_t  *_data;
     // global Auto White Calculation override
     static uint8_t _gAWM;
@@ -360,8 +365,9 @@ struct BusConfig {
   bool doubleBuffer;
   uint8_t milliAmpsPerLed;
   uint16_t milliAmpsMax;
+  uint8_t autoWhiteKeep;
 
-  BusConfig(uint8_t busType, uint8_t* ppins, uint16_t pstart, uint16_t len = 1, uint8_t pcolorOrder = COL_ORDER_GRB, bool rev = false, uint8_t skip = 0, byte aw=RGBW_MODE_MANUAL_ONLY, uint16_t clock_kHz=0U, bool dblBfr=false, uint8_t maPerLed=LED_MILLIAMPS_DEFAULT, uint16_t maMax=ABL_MILLIAMPS_DEFAULT)
+  BusConfig(uint8_t busType, uint8_t* ppins, uint16_t pstart, uint16_t len = 1, uint8_t pcolorOrder = COL_ORDER_GRB, bool rev = false, uint8_t skip = 0, byte aw=RGBW_MODE_MANUAL_ONLY, uint16_t clock_kHz=0U, bool dblBfr=false, uint8_t maPerLed=LED_MILLIAMPS_DEFAULT, uint16_t maMax=ABL_MILLIAMPS_DEFAULT, uint8_t awKeep=0)
   : count(len)
   , start(pstart)
   , colorOrder(pcolorOrder)
@@ -372,6 +378,7 @@ struct BusConfig {
   , doubleBuffer(dblBfr)
   , milliAmpsPerLed(maPerLed)
   , milliAmpsMax(maMax)
+  , autoWhiteKeep(awKeep)
   {
     refreshReq = (bool) GET_BIT(busType,7);
     type = busType & 0x7F;  // bit 7 may be/is hacked to include refresh info (1=refresh in off state, 0=no refresh)

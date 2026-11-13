@@ -187,6 +187,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       bool refresh = elm["ref"] | false;
       uint16_t freqkHz = elm[F("freq")] | 0;  // will be in kHz for DotStar and Hz for PWM
       uint8_t AWmode = elm[F("rgbwm")] | RGBW_MODE_MANUAL_ONLY;
+      uint8_t AWkeep = elm[F("rgbwk")] | 0; // % of the common RGB part kept on RGB in Accurate mode
       uint8_t maPerLed = elm[F("ledma")] | LED_MILLIAMPS_DEFAULT;
       uint16_t maMax = elm[F("maxpwr")] | (ablMilliampsMax * length) / total; // rough (incorrect?) per strip ABL calculation when no config exists
       // To disable brightness limiter we either set output max current to 0 or single LED current to 0 (we choose output max current)
@@ -196,7 +197,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       }
       ledType |= refresh << 7; // hack bit 7 to indicate strip requires off refresh
 
-      busConfigs.push_back(std::move(BusConfig(ledType, pins, start, length, colorOrder, reversed, skipFirst, AWmode, freqkHz, useGlobalLedBuffer, maPerLed, maMax)));
+      busConfigs.push_back(std::move(BusConfig(ledType, pins, start, length, colorOrder, reversed, skipFirst, AWmode, freqkHz, useGlobalLedBuffer, maPerLed, maMax, AWkeep)));
       doInitBusses = true;  // finalization done in beginStrip()
       s++;
     }
@@ -857,6 +858,7 @@ void serializeConfig() {
     ins["type"] = bus->getType() & 0x7F;
     ins["ref"] = bus->isOffRefreshRequired();
     ins[F("rgbwm")] = bus->getAutoWhiteMode();
+    ins[F("rgbwk")] = bus->getAutoWhiteKeep();
     ins[F("freq")] = bus->getFrequency();
     ins[F("maxpwr")] = bus->getMaxCurrent();
     ins[F("ledma")] = bus->getLEDCurrent();
